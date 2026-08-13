@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cookie Initiator Repro</title>
+</head>
+<body>
+  <h1>Cookie Initiator Repro Page</h1>
+  <p>
+    This page sets cookies from inline &lt;script&gt; blocks (no external
+    file), which is what makes a real browser report the initiator call
+    stack as <code>:line:col:0</code> with an empty URL &mdash; the exact
+    pattern from the bug screenshot. It also loads <code>tracker.js</code>
+    as an external file so you have a normal, correctly-attributed
+    initiator to compare against.
+  </p>
+
+  <script>
+    // Inline script #1 - mimics the Adobe "cmgvo" cookie from the screenshot
+    document.cookie = "cmgvo=undefinedTyped%2FBookmarkedTyped%2FBookmarkedundefined; path=/; SameSite=Lax";
+  </script>
+
+  <script>
+    // Inline script #2 - a second Adobe-style session cookie
+    document.cookie = "s_cc=true; path=/; SameSite=Lax";
+  </script>
+
+  <script>
+    // Inline script #3 - a generic analytics-style cookie, different line
+    // position so it produces a different :line:col:0 stack entry
+    document.cookie = "stat_session_id=" + Math.random().toString(36).slice(2) + "; path=/; SameSite=Lax";
+  </script>
+
+  <script>
+    // Inline script #4 - another variant, further down the file
+    document.cookie = "stat_visit_count=1; path=/; SameSite=Lax";
+  </script>
+
+  <script src="tracker.js"></script>
+
+</body>
+</html>
