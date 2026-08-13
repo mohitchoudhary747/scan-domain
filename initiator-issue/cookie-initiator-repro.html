@@ -2,18 +2,235 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cookie Initiator Repro</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #e2e4e9;
+    --text: #1b1e24;
+    --muted: #6b7280;
+    --accent: #4f46e5;
+    --accent-soft: #eef2ff;
+    --bad: #b91c1c;
+    --bad-soft: #fef2f2;
+    --good: #15803d;
+    --good-soft: #f0fdf4;
+    --code-bg: #f1f2f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --panel: #1c1f26;
+      --border: #2c303a;
+      --text: #e6e8ec;
+      --muted: #9aa0ab;
+      --accent: #818cf8;
+      --accent-soft: #232244;
+      --bad: #f87171;
+      --bad-soft: #2a1414;
+      --good: #4ade80;
+      --good-soft: #10231a;
+      --code-bg: #23262e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    margin: 0 0 6px;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 28px;
+    font-size: 0.95rem;
+  }
+  .callout {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 32px;
+    font-size: 0.92rem;
+  }
+  .callout code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 0.85em;
+  }
+  .section-title {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin: 0 0 12px;
+    font-weight: 600;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+    margin-bottom: 36px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card .name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .card .desc {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-top: 4px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-top: 10px;
+    letter-spacing: 0.02em;
+  }
+  .badge.bug {
+    color: var(--bad);
+    background: var(--bad-soft);
+  }
+  .badge.ok {
+    color: var(--good);
+    background: var(--good-soft);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 14px;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--good);
+    flex: none;
+  }
+</style>
 </head>
 <body>
-  <h1>Cookie Initiator Repro Page</h1>
-  <p>
-    This page sets cookies from inline &lt;script&gt; blocks (no external
-    file), which is what makes a real browser report the initiator call
-    stack as <code>:line:col:0</code> with an empty URL &mdash; the exact
-    pattern from the bug screenshot. It also loads <code>tracker.js</code>
-    as an external file so you have a normal, correctly-attributed
-    initiator to compare against.
-  </p>
+  <div class="wrap">
+    <h1>Cookie Initiator Repro Page</h1>
+    <p class="subtitle">Live reproduction of the malformed &ldquo;Initiator Call Stack&rdquo; bug for cookie scanning.</p>
+
+    <div class="callout">
+      Cookies below are set from inline <code>&lt;script&gt;</code> blocks with no source file.
+      A real browser reports the initiator call stack for these as <code>:line:col:0</code> with an
+      <strong>empty URL</strong> &mdash; the exact pattern from the bug screenshot. <code>tracker.js</code>
+      is loaded as an external file so its cookies get a normal, correctly-attributed initiator to compare against.
+    </div>
+
+    <p class="section-title">Malformed initiator &middot; set inline (bug repro)</p>
+    <div class="grid">
+      <div class="card">
+        <div class="name">cmgvo</div>
+        <div class="desc">Adobe Analytics &mdash; from screenshot</div>
+        <span class="badge bug">script, no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">s_cc</div>
+        <div class="desc">Adobe session cookie</div>
+        <span class="badge bug">script, no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">MCMID</div>
+        <div class="desc">Adobe demdex.net ID</div>
+        <span class="badge bug">script, no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">_fbp</div>
+        <div class="desc">Facebook pixel</div>
+        <span class="badge bug">script, no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">__attentive_id</div>
+        <div class="desc">Attentive tracker</div>
+        <span class="badge bug">script, no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">_gid</div>
+        <div class="desc">Google Analytics</div>
+        <span class="badge bug">script, no URL</span>
+      </div>
+    </div>
+
+    <p class="section-title">Correct initiator &middot; set from tracker.js (control case)</p>
+    <div class="grid">
+      <div class="card">
+        <div class="name">tracker_client_id</div>
+        <div class="desc">External file, real line/col</div>
+        <span class="badge ok">script, has URL</span>
+      </div>
+      <div class="card">
+        <div class="name">tracker_session</div>
+        <div class="desc">External file, real line/col</div>
+        <span class="badge ok">script, has URL</span>
+      </div>
+    </div>
+
+    <p class="section-title">Live cookies on this page</p>
+    <div class="status"><span class="dot"></span><span id="status-text">Reading document.cookie&hellip;</span></div>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Value</th></tr>
+      </thead>
+      <tbody id="cookie-table"></tbody>
+    </table>
+  </div>
 
   <script>
     // Inline script #1 - mimics the Adobe "cmgvo" cookie from the screenshot
@@ -26,17 +243,55 @@
   </script>
 
   <script>
-    // Inline script #3 - a generic analytics-style cookie, different line
-    // position so it produces a different :line:col:0 stack entry
-    document.cookie = "stat_session_id=" + Math.random().toString(36).slice(2) + "; path=/; SameSite=Lax";
+    // Inline script #3 - mimics the "MCMID" Adobe demdex.net cookie
+    document.cookie = "MCMID=91357892204758306361696404936; path=/; SameSite=Lax";
   </script>
 
   <script>
-    // Inline script #4 - another variant, further down the file
-    document.cookie = "stat_visit_count=1; path=/; SameSite=Lax";
+    // Inline script #4 - mimics the "_fbp" Facebook pixel cookie
+    document.cookie = "_fbp=fb.0." + Date.now() + ".9152577284; path=/; SameSite=Lax";
+  </script>
+
+  <script>
+    // Inline script #5 - mimics the "__attentive_id" cookie
+    document.cookie = "__attentive_id=" + Math.random().toString(36).slice(2) + "; path=/; SameSite=Lax";
+  </script>
+
+  <script>
+    // Inline script #6 - mimics the "_gid" Google Analytics cookie
+    document.cookie = "_gid=GA1.2." + Math.floor(Math.random() * 1e9) + "." + Math.floor(Date.now() / 1000) + "; path=/; SameSite=Lax";
   </script>
 
   <script src="tracker.js"></script>
 
+  <script>
+    // Renders the live document.cookie jar so you can visually confirm
+    // everything above actually landed, independent of the scanner.
+    (function renderCookies() {
+      var rows = document.cookie.split(";").map(function (c) { return c.trim(); }).filter(Boolean);
+      var tbody = document.getElementById("cookie-table");
+      var statusText = document.getElementById("status-text");
+      if (!rows.length) {
+        statusText.textContent = "No cookies found on this document.";
+        return;
+      }
+      statusText.textContent = rows.length + " cookie(s) currently set on this page.";
+      rows.forEach(function (row) {
+        var idx = row.indexOf("=");
+        var name = idx === -1 ? row : row.slice(0, idx);
+        var value = idx === -1 ? "" : row.slice(idx + 1);
+        var tr = document.createElement("tr");
+        var tdName = document.createElement("td");
+        tdName.className = "value";
+        tdName.textContent = name;
+        var tdValue = document.createElement("td");
+        tdValue.className = "value";
+        tdValue.textContent = value;
+        tr.appendChild(tdName);
+        tr.appendChild(tdValue);
+        tbody.appendChild(tr);
+      });
+    })();
+  </script>
 </body>
 </html>
