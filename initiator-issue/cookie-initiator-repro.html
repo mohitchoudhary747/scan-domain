@@ -168,43 +168,88 @@
     <p class="subtitle">Live reproduction of the malformed &ldquo;Initiator Call Stack&rdquo; bug for cookie scanning.</p>
 
     <div class="callout">
-      Cookies below are set from inline <code>&lt;script&gt;</code> blocks with no source file.
-      A real browser reports the initiator call stack for these as <code>:line:col:0</code> with an
-      <strong>empty URL</strong> &mdash; the exact pattern from the bug screenshot. <code>tracker.js</code>
-      is loaded as an external file so its cookies get a normal, correctly-attributed initiator to compare against.
+      Round 1 (below, in the &ldquo;static inline&rdquo; group) tested whether plain
+      inline <code>&lt;script&gt;</code> blocks produce an empty-URL initiator. They didn't &mdash;
+      the scanner correctly attributed them to this page's own URL. Round 2 tests sourceless
+      execution (<code>eval()</code>, <code>new Function()</code>, stringified <code>setTimeout</code>,
+      and a dynamically created &amp; appended <code>&lt;script&gt;</code> element). On tiaa.org, the
+      actual mechanism is confirmed: GTM (container <code>GTM-WKK389C</code>) fires Adobe's
+      AppMeasurement.js &mdash; complete with its <code>channelManager</code>/<code>eVar41</code>
+      plugin that literally writes <code>cmgvo</code> &mdash; as a Custom HTML tag, i.e. one
+      dynamically-created <code>&lt;script&gt;</code> whose <code>.text</code> is that entire
+      multi-function library, not a one-liner. <code>dynscript_cookie</code> below now mirrors that
+      shape (several nested function calls deep in a multi-KB blob) instead of a trivial single
+      statement. Round 3 tests a different candidate: Securiti's own consent SDK gates Adobe/GTM
+      firing, so the real cookie write may happen inside an <strong>async Promise callback</strong>
+      several microtask hops away from any synchronous script &mdash; a stack-capture scenario very
+      different from a flat script body. <code>tracker.js</code> is loaded as an external file so
+      its cookies get a normal, correctly-attributed initiator to compare against.
     </div>
 
-    <p class="section-title">Malformed initiator &middot; set inline (bug repro)</p>
+    <p class="section-title">Round 1 &middot; static inline script (did NOT reproduce the bug)</p>
     <div class="grid">
       <div class="card">
         <div class="name">cmgvo</div>
         <div class="desc">Adobe Analytics &mdash; from screenshot</div>
-        <span class="badge bug">script, no URL</span>
+        <span class="badge ok">script, got real URL</span>
       </div>
       <div class="card">
         <div class="name">s_cc</div>
         <div class="desc">Adobe session cookie</div>
-        <span class="badge bug">script, no URL</span>
+        <span class="badge ok">script, got real URL</span>
       </div>
       <div class="card">
         <div class="name">MCMID</div>
         <div class="desc">Adobe demdex.net ID</div>
-        <span class="badge bug">script, no URL</span>
+        <span class="badge ok">script, got real URL</span>
       </div>
       <div class="card">
         <div class="name">_fbp</div>
         <div class="desc">Facebook pixel</div>
-        <span class="badge bug">script, no URL</span>
+        <span class="badge ok">script, got real URL</span>
       </div>
       <div class="card">
         <div class="name">__attentive_id</div>
         <div class="desc">Attentive tracker</div>
-        <span class="badge bug">script, no URL</span>
+        <span class="badge ok">script, got real URL</span>
       </div>
       <div class="card">
         <div class="name">_gid</div>
         <div class="desc">Google Analytics</div>
-        <span class="badge bug">script, no URL</span>
+        <span class="badge ok">script, got real URL</span>
+      </div>
+    </div>
+
+    <p class="section-title">Round 2 &middot; sourceless execution (new hypothesis)</p>
+    <div class="grid">
+      <div class="card">
+        <div class="name">eval_cookie</div>
+        <div class="desc">Set via eval()</div>
+        <span class="badge bug">expect: no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">func_cookie</div>
+        <div class="desc">Set via new Function()</div>
+        <span class="badge bug">expect: no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">timer_cookie</div>
+        <div class="desc">Set via setTimeout(string, ms)</div>
+        <span class="badge bug">expect: no URL</span>
+      </div>
+      <div class="card">
+        <div class="name">dynscript_cookie</div>
+        <div class="desc">~60-line multi-function blob injected via createElement('script'), matching GTM's Custom HTML delivery of AppMeasurement.js</div>
+        <span class="badge bug">expect: no URL</span>
+      </div>
+    </div>
+
+    <p class="section-title">Round 3 &middot; async / consent-gated callback (new candidate)</p>
+    <div class="grid">
+      <div class="card">
+        <div class="name">consent_gated_cookie</div>
+        <div class="desc">Written inside a Promise .then() callback, several microtask hops after a simulated consent-check &mdash; mirrors Securiti-gated Adobe/GTM firing</div>
+        <span class="badge bug">expect: no URL</span>
       </div>
     </div>
 
@@ -260,6 +305,89 @@
   <script>
     // Inline script #6 - mimics the "_gid" Google Analytics cookie
     document.cookie = "_gid=GA1.2." + Math.floor(Math.random() * 1e9) + "." + Math.floor(Date.now() / 1000) + "; path=/; SameSite=Lax";
+  </script>
+
+  <script>
+    // Round 2, attempt #1 - eval() compiles to sourceless code
+    eval('document.cookie = "eval_cookie=" + Math.random().toString(36).slice(2) + "; path=/; SameSite=Lax";');
+  </script>
+
+  <script>
+    // Round 2, attempt #2 - new Function() has no source file either
+    new Function('document.cookie = "func_cookie=" + Math.random().toString(36).slice(2) + "; path=/; SameSite=Lax";')();
+  </script>
+
+  <script>
+    // Round 2, attempt #3 - a string passed to setTimeout is compiled like eval()
+    setTimeout('document.cookie = "timer_cookie=" + Math.random().toString(36).slice(2) + "; path=/; SameSite=Lax";', 0);
+  </script>
+
+  <script>
+    // Round 2, attempt #4 - script element created and appended at runtime,
+    // with a multi-function payload sized/shaped like the real tiaa.org case:
+    // GTM's Custom HTML tag injects Adobe's AppMeasurement.js in one shot,
+    // and the cookie write happens several function calls deep inside it
+    // (channelManager() called from eVar41(), called from the plugin loader,
+    // called from the tracking-call dispatcher) - not a flat one-liner.
+    (function () {
+      var payload = [
+        'function eVar1(a){return getTag("d1",a)}',
+        'function eVar2(a){return getTag("d2",a)}',
+        'function eVar3(a){return getTag("d3",a)}',
+        'function eVar4(a){return getTag("d4",a)}',
+        'function eVar5(a){return getTag("d5",a)}',
+        'function eVar6(a){return getTag("d6",a)}',
+        'function eVar7(a){return getTag("d7",a)}',
+        'function eVar8(a){return getTag("d8",a)}',
+        'function eVar9(a){return getTag("d9",a)}',
+        'function eVar10(a){return getTag("d10",a)}',
+        'function getTag(k,a){return (a&&a[k])||""}',
+        'function cookieWrite(name,value,days){',
+        '  var maxAge = days ? ("; max-age=" + (days*86400)) : "";',
+        '  document.cookie = name + "=" + value + "; path=/; SameSite=Lax" + maxAge;',
+        '  return true;',
+        '}',
+        'var s_omtr = { contextData: {} };',
+        's_omtr.channelManager = function (cookieName, channelsAllowed, targetKey, chan, tcVar, expDays) {',
+        '  var val = "eyJhbGciOiJSUzI1NiJ9." + Math.random().toString(36).slice(2);',
+        '  cookieWrite(targetKey, val, expDays);',
+        '  return val;',
+        '};',
+        'function eVar41(a){',
+        '  try {',
+        '    s_omtr.channelManager("tc_mcid", "", "dynscript_cookie", "", "s_tbm", 30);',
+        '  } catch (e) {}',
+        '}',
+        'function dispatchTrackingCall(vars){',
+        '  for (var i = 0; i < vars.length; i++) {',
+        '    if (typeof vars[i] === "function") { vars[i](); }',
+        '  }',
+        '}',
+        'dispatchTrackingCall([eVar1, eVar2, eVar3, eVar4, eVar5, eVar6, eVar7, eVar8, eVar9, eVar10, eVar41]);'
+      ].join("\n");
+      var s = document.createElement("script");
+      s.text = payload;
+      document.body.appendChild(s);
+    })();
+  </script>
+
+  <script>
+    // Round 3 - cookie write happens inside an async Promise callback, several
+    // microtask hops after a simulated consent-check, mirroring how Securiti's
+    // consent SDK gates Adobe/GTM firing on tiaa.org (per their own config
+    // comment: "dependencies: Securiti.AI (Cookie Consent, Adobe Analytics...)").
+    function checkConsentGranted() {
+      return Promise.resolve().then(function () {
+        return new Promise(function (resolve) {
+          setTimeout(function () { resolve(true); }, 20);
+        });
+      });
+    }
+    checkConsentGranted().then(function (granted) {
+      if (granted) {
+        document.cookie = "consent_gated_cookie=" + Math.random().toString(36).slice(2) + "; path=/; SameSite=Lax";
+      }
+    });
   </script>
 
   <script src="tracker.js"></script>
